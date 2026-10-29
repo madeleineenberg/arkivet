@@ -1,36 +1,77 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Arkivet
 
-## Getting Started
+Fotografera ett skivomslag (vinyl eller CD) och få reda på vilken skiva det är.
 
-First, run the development server:
+**Live:** [arkivet-app.vercel.app](https://arkivet-app.vercel.app)
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+## Så fungerar det
+
+```
+foto  →  förminskas i webbläsaren  →  /api/identify
+                                          │
+                                          ├─ 1. Claude läser artist och titel från omslaget
+                                          └─ 2. Discogs söker fram riktiga utgåvor
+                                                    │
+                                          användaren väljer rätt utgåva
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+1. Bilden förminskas till max 1024 px (JPEG) i webbläsaren innan den laddas upp, så att AI-anropet blir billigare och snabbare.
+2. [`lib/identify.ts`](lib/identify.ts) skickar bilden till Claude. Modellen måste svara via ett verktyg (tool use) med `artist`, `title` och `confidence`. Svaret valideras sedan med zod.
+3. [`lib/discogs.ts`](lib/discogs.ts) söker i Discogs databas och returnerar upp till fem kandidater.
+4. AI:ns gissning sparas aldrig direkt. Det är träffarna från Discogs som räknas.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### Svar från API:t
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+`POST /api/identify` tar emot `multipart/form-data` med fältet `image` (JPEG, PNG eller WebP, max 1,5 MB).
 
-## Learn More
+| `status`             | Betydelse                                                  |
+| -------------------- | ---------------------------------------------------------- |
+| `ok`                 | Gissning plus kandidater från Discogs                      |
+| `not_recognised`     | Inget skivomslag, eller texten gick inte att läsa          |
+| `lookup_unavailable` | AI:n svarade men Discogs är nere. Bara gissningen visas    |
+| `ai_unavailable`     | Anropet till Claude misslyckades                           |
+| `bad_request`        | Bild saknas, fel filtyp eller för stor fil                 |
 
-To learn more about Next.js, take a look at the following resources:
+## Kom igång lokalt
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm install
+npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Skapa först `.env.local` med variablerna nedan.
 
-## Deploy on Vercel
+Öppna [http://localhost:3000](http://localhost:3000).
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Miljövariabler
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Variabel            | Krävs | Beskrivning                                             |
+| ------------------- | ----- | ------------------------------------------------------- |
+| `ANTHROPIC_API_KEY` | ja    | API-nyckel från [console.anthropic.com](https://console.anthropic.com) |
+| `DISCOGS_TOKEN`     | ja    | Personlig token från [discogs.com/settings/developers](https://www.discogs.com/settings/developers) |
+| `ANTHROPIC_MODEL`   | nej   | Vilken Claude-modell som används. Standard: `claude-haiku-5-5` |
+
+## Skript
+
+| Kommando        | Gör                       |
+| --------------- | ------------------------- |
+| `npm run dev`   | Startar utvecklingsservern |
+| `npm run build` | Bygger för produktion     |
+| `npm run lint`  | Kör ESLint                |
+| `npm test`      | Kör testerna (Vitest)     |
+
+## Projektstruktur
+
+```
+app/
+  page.tsx               Startsidan: uppladdning och resultat
+  api/identify/route.ts  API-route: validerar bilden, anropar AI och Discogs
+lib/
+  identify.ts            Claude-anropet (omslag → artist/titel)
+  discogs.ts             Sökning i Discogs
+  limits/                Räknarlager för rate limiting (ej inkopplat än)
+```
+
+## Teknik
+
+Next.js 16 (App Router), React 19, TypeScript, Tailwind CSS 4, zod, Anthropic SDK, Vitest. Driftas på Vercel.

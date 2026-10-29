@@ -26,7 +26,7 @@ describe('createMemoryStore', () => {
   it('glömmer nyckeln när TTL gått ut', async () => {
     const clock = fakeClock();
     const store = createMemoryStore(clock.now);
-    await store.set('k', 'x', 10);
+    await store.set('k', 1, 10);
     clock.advance(10_000);
     expect(await store.get('k')).toBeNull();
   });

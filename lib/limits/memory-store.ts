@@ -1,6 +1,6 @@
 import type { CounterStore } from './store';
 
-type Entry = { value: string; expiresAt: number };
+type Entry = { value: number; expiresAt: number };
 
 export function createMemoryStore(now: () => number = Date.now): CounterStore {
   const data = new Map<string, Entry>();
@@ -24,9 +24,9 @@ export function createMemoryStore(now: () => number = Date.now): CounterStore {
     },
     async incr(key, ttlSeconds) {
       const entry = read(key);
-      const next = (entry ? Number(entry.value) : 0) + 1;
+      const next = (entry?.value ?? 0) + 1;
       data.set(key, {
-        value: String(next),
+        value: next,
         expiresAt: entry?.expiresAt ?? now() + ttlSeconds * 1000,
       });
       return next;

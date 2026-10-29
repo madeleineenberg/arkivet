@@ -13,7 +13,7 @@ type Candidate = {
 type Result =
   | { status: "ok"; guess: { artist: string; title: string; confidence: string }; candidates: Candidate[] }
   | { status: "lookup_unavailable" | "not_recognised"; guess: { artist: string | null; title: string | null; confidence: string } }
-  | { status: "ai_unavailable" | "bad_request"; message?: string };
+  | { status: "ai_unavailable" | "ai_quota_exceeded" | "bad_request"; message?: string };
 
 // Förminska innan uppladdning: billigare AI-anrop, snabbare, och under Vercels body-gräns.
 async function resize(file: File, maxSide = 1024): Promise<Blob> {
@@ -62,6 +62,9 @@ export default function Home() {
       {busy && <p>Läser omslaget…</p>}
 
       {result?.status === "ai_unavailable" && <p>Bildigenkänningen svarar inte just nu. Försök igen strax.</p>}
+      {result?.status === "ai_quota_exceeded" && (
+        <p>Dagens gräns för bildigenkänning är nådd. Försök igen i morgon.</p>
+      )}
       {result?.status === "bad_request" && <p>{result.message}</p>}
       {result?.status === "not_recognised" && <p>Kunde inte läsa omslaget säkert. Prova en skarpare bild.</p>}
       {result?.status === "lookup_unavailable" && (
